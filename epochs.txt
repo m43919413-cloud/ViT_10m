@@ -1,0 +1,50 @@
+/usr/local/lib/python3.13/dist-packages/megatron/core/optimizer/__init__.py:25: UserWarning: Transformer Engine and Apex are not installed. Falling back to Torch optimizers.
+  warnings.warn(
+/usr/local/lib/python3.13/dist-packages/megatron/core/distributed/fsdp/src/megatron_fsdp/mixed_precision.py:115: UserWarning: Transformer Engine and Apex are not installed. Falling back to local implementations of multi_tensor_applier and multi_tensor_scale
+  warnings.warn(
+/usr/local/lib/python3.13/dist-packages/megatron/core/optimizer/optimizer.py:29: UserWarning: Transformer Engine and Apex are not installed. Falling back to local implementations of multi_tensor_applier and multi_tensor_scale
+  warnings.warn(
+/usr/local/lib/python3.13/dist-packages/megatron/core/optimizer/clip_grads.py:32: UserWarning: Transformer Engine and Apex are not installed. Falling back to local implementations of multi_tensor_applier, multi_tensor_l2norm, and multi_tensor_scale
+  warnings.warn(
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1793022671.449260   26640 cpu_feature_guard.cc:227] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1793022676.189985   26640 cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Resolving data files: 100% 17/17 [00:00<00:00, 17519.21it/s]
+Resolving data files: 100% 17/17 [00:00<00:00, 28094.23it/s]
+Loading dataset shards: 100% 17/17 [00:05<00:00,  3.17it/s]
+/usr/local/lib/python3.13/dist-packages/torch/utils/data/dataloader.py:424: UserWarning: This DataLoader will create 4 worker processes in total. Our suggested max number of worker in current system is 2, which is smaller than what this DataLoader is going to create. Please be aware that excessive worker creation might get DataLoader running slow or even freeze, lower the worker number to avoid potential slowness/freeze if necessary.
+  self.check_worker_number_rationality()
+[loader] train=126689 | val=5000
+train=126689 | val=5000 | world_size=1
+/usr/local/lib/python3.13/dist-packages/megatron/core/transformer/transformer_config.py:2415: UserWarning: full scope is deprecated. Use empty cuda_graph_modules to capture the whole layer.
+  warnings.warn(
+[2026-10-26 13:51:26,433] [WARNING] [lr_schedules.py:938:get_lr] Attempting to get learning rate from scheduler before it has started
+/usr/local/lib/python3.13/dist-packages/torch/utils/data/dataloader.py:432: UserWarning: This DataLoader will create 4 worker processes in total. Our suggested max number of worker in current system is 2, which is smaller than what this DataLoader is going to create. Please be aware that excessive worker creation might get DataLoader running slow or even freeze, lower the worker number to avoid potential slowness/freeze if necessary.
+  self.check_worker_number_rationality()
+epoch 00 | loss 4.6916 | train 0.00% | val 2.44% | lr 8.25e-05 | 859.1s
+   saved best (2.44%)
+epoch 01 | loss 4.5298 | train 0.00% | val 5.88% | lr 1.04e-04 | 939.1s
+   saved best (5.88%)
+/usr/local/lib/python3.13/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+epoch 02 | loss 4.3680 | train 0.00% | val 10.62% | lr 1.17e-04 | 870.7s
+   saved best (10.62%)
+epoch 03 | loss 4.2386 | train 0.00% | val 14.18% | lr 1.25e-04 | 951.5s
+   saved best (14.18%)
+epoch 04 | loss 4.1618 | train 0.00% | val 15.32% | lr 1.32e-04 | 1013.3s
+   saved best (15.32%)
+epoch 05 | loss 4.0849 | train 0.00% | val 17.26% | lr 1.38e-04 | 1027.6s
+   saved best (17.26%)
+epoch 06 | loss 4.0263 | train 0.00% | val 19.22% | lr 1.43e-04 | 991.9s
+   saved best (19.22%)
+epoch 07 | loss 3.9778 | train 0.00% | val 19.34% | lr 1.47e-04 | 966.3s
+   saved best (19.34%)
+epoch 08 | loss 3.9414 | train 0.00% | val 20.80% | lr 1.50e-04 | 884.5s
+   saved best (20.80%)
+epoch 09 | loss 3.8766 | train 0.00% | val 22.22% | lr 1.53e-04 | 866.1s
+   saved best (22.22%)
+epoch 10 | loss 3.8463 | train 0.00% | val 23.60% | lr 1.56e-04 | 870.7s
+   saved best (23.60%)
