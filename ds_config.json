@@ -1,0 +1,54 @@
+{
+    "train_batch_size": 128,
+    "train_micro_batch_size": 2,
+    "gradient_accumulation_steps": 64,
+
+    "fp16": {
+        "enabled": true,
+        "loss_scale": 0,
+        "initial_scale_power": 16,
+        "loss_scale_window": 1000,
+        "hysteresis": 2,
+        "min_loss_scale": 1
+    },
+
+    "optimizer": {
+        "type": "AdamW",
+        "params": {
+            "lr": 2.10468228006034e-4,
+            "betas": [0.9, 0.999],
+            "eps": 1e-8,
+            "weight_decay": 0.05
+        }
+    },
+
+    "scheduler": {
+
+        "type": "WarmupCosineLR",
+
+        "params": {
+
+            "warmup_min_ratio": 0,
+
+            "warmup_num_steps": 1005,
+
+            "total_num_steps": 15000,
+
+            "cos_min_ratio": 0.0001
+        }
+    },
+
+    "zero_optimization": {
+        "stage": 2,
+        "overlap_comm": true,
+        "contiguous_gradients": true,
+        "reduce_bucket_size": 1e5,
+        "allgather_bucket_size": 1e5
+    },
+
+    "gradient_clipping": 1.0,
+
+    "steps_per_print": 20,
+
+    "wall_clock_breakdown": false
+}
