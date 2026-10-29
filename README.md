@@ -1,10 +1,8 @@
-# T5-LoRA Summarizer
+# CiT: A Hybrid Vision Transformer with Mixture of Experts
 
-Fine-tuning **t5-small** with **LoRA (PEFT)** for dialogue summarization on the
-SAMSUM dataset.
+An experimental vision architecture combining CNN feature extraction, Grouped-Query Attention (GQA), and Mixture of Experts (MoE) with tensor parallelism (via Megatron-Core), trained on ImageNet-100 using DeepSpeed.
 
-A lightweight, parameter-efficient summarization model — the LoRA adapter is
-only ~3 MB, while the base model is loaded separately at inference time.
+This is a research-oriented implementation exploring hybrid CNN-Transformer designs with sparse expert routing for vision tasks.
 
 ---
 
@@ -12,174 +10,139 @@ only ~3 MB, while the base model is loaded separately at inference time.
 
 | Item | Value |
 |---|---|
-| **Base model** | t5-small (60M params) |
-| **Fine-tuning method** | LoRA (r=8, alpha=32, target: q, v) |
-| **Dataset** | knkarthick/samsum (dialogue → summary) |
-| **Trainable params** | ~0.6% of total |
-| **Task** | Abstractive dialogue summarization |
-| **Language** | English |
-
-The model was fine-tuned using Seq2SeqTrainer for 3 epochs with a learning
-rate of 3e-4, then the LoRA adapter was saved and merged with the base model
-at inference time.
+| **Model** | CiT (CNN + Transformer + MoE) |
+| **Parameters** | ~10M (ViT-10M variant) |
+| **Dataset** | ImageNet-100 (via HuggingFace `clane9/imagenet-100`) |
+| **Training framework** | DeepSpeed (ZeRO-2) + Megatron-Core |
+| **Precision** | Mixed precision (FP16) |
+| **Task** | Image classification (100 classes) |
 
 ---
 
-## Project structure
+## Architecture
 
-- Fine_Tune_LoRA_T5.py — training script (run on Colab / GPU)
-- Inference_T5.py — inference / usage script
-- adapter_config.json — LoRA adapter config
-- adapter_model.safetensors — LoRA adapter weights (~3 MB)
-- tokenizer.json — tokenizer files
-- requirements.txt
-- .gitignore
-- README.md
+The model is built from the following components:
+
+- **CNN Backbone** — A series of `Conv2d + GroupNorm + GLU + MaxPool2d` layers that extract local, hierarchical visual features before the transformer.
+- **Patch Embedding** — A `1x1 Conv2d` projects the CNN feature map into the transformer hidden dimension.
+- **Grouped-Query Attention (GQA)** — Query heads are split into groups; each group shares key/value heads (e.g., 8 Q heads, 2 KV heads). This reduces KV cache and memory usage.
+- **Mixture of Experts (MoE)** — Each transformer block contains a router (`Linear`) and 4 experts with `top-K=2` routing, plus an auxiliary load-balancing loss (`aux_loss`).
+- **RMSNorm** — Used instead of LayerNorm for better stability in mixed precision.
+- **Learned Positional Encoding** — A trainable positional embedding (max_len=2000).
+- **CLS Token** — An optional learnable `[CLS]` token is prepended and used for classification.
+
+---
+
+## Training Setup
+
+- **Optimizer**: AdamW (`lr=2.1e-4`, `betas=(0.9, 0.999)`, `weight_decay=0.05`)
+- **Scheduler**: `WarmupCosineLR` (warmup=1005 steps, total=15000 steps, `cos_min_ratio=0.0001`)
+- **Batch size**: 128 (achieved via `train_micro_batch_size=2` × `gradient_accumulation_steps=64`)
+- **Gradient clipping**: 1.0
+- **Mixed precision**: FP16 with dynamic loss scaling
+- **DeepSpeed ZeRO-2** with communication overlap for memory efficiency
+- **Data augmentation**: `RandomResizedCrop`, `RandomHorizontalFlip`, `RandAugment`, `RandomErasing`, `Mixup` + `CutMix`
+
+---
+
+## Training Progress (from `epochs.txt`)
+
+| Epoch | Loss | Train Acc | Val Acc |
+|---|---|---|---|
+| 0 | 4.69 | — | 2.44% |
+| 1 | 4.53 | — | 5.88% |
+| 5 | 4.08 | — | 17.26% |
+| 8 | 3.94 | — | 20.80% |
+| 10 | 3.84 | — | 23.60% |
+
+Training was run for at least 10 epochs and val accuracy was still climbing (~2.3% gain per epoch). Best checkpoint was saved as `best/model.pt` in the checkpoint directory.
+
+---
+
+## Project Structure
+
+- `CiT.py` — Model definition (CNN, GQA, MoE, CiTBlock, CiT)
+- `CiT_Train.py` — Training loop, checkpointing, DeepSpeed integration
+- `Transformer_Dataloader.py` — ImageNet-100 data loading with distributed samplers
+- `ds_config.json` — DeepSpeed configuration (ZeRO-2, scheduler, optimizer)
+- `requirements.txt`
+- `README.md`
 
 ---
 
 ## Installation
 
-Clone the repo and set up a virtual environment:
-
     git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git
     cd YOUR_REPO
 
     python -m venv venv
-    source venv/bin/activate          # Linux / macOS
-    # venv\Scripts\activate           # Windows
-
+    source venv/bin/activate
     pip install -r requirements.txt
 
 ### requirements.txt
 
-    transformers>=4.40.0
-    peft>=0.10.0
-    torch>=2.0.0
+    torch>=2.1.0
+    torchvision>=0.16.0
+    deepspeed>=0.13.0
+    megatron-core>=0.6.0
     datasets>=2.18.0
-    accelerate>=0.28.0
-
-### .gitignore
-
-    venv/
-    __pycache__/
-    *.pyc
-    .ipynb_checkpoints/
-    *.bin
-    *.pt
-    *.pth
-    *.ckpt
-    .DS_Store
-
-Note: the *.bin rule prevents the base model weights (pytorch_model.bin, ~240 MB)
-from being pushed by mistake. adapter_model.safetensors uses the .safetensors
-extension, so it IS committed — that is intentional.
+    timm>=0.9.0
+    pillow>=10.0.0
 
 ---
 
-## Usage
+## How to Run Training
 
-    from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-    from peft import PeftModel
-    import torch
+Single GPU or multi-GPU with DeepSpeed:
 
-    ADAPTER_PATH = "./"               # folder containing the adapter files
-    BASE_MODEL   = "t5-small"
+    deepspeed --num_gpus=1 CiT_Train.py --deepspeed ds_config.json --epochs 200 --batch_size 128
 
-    tokenizer = AutoTokenizer.from_pretrained(ADAPTER_PATH)
-    base = AutoModelForSeq2SeqLM.from_pretrained(BASE_MODEL)
-    model = PeftModel.from_pretrained(base, ADAPTER_PATH).eval()
+Or using a wrapper:
 
-    def summarize(dialogue: str) -> str:
-        prompt = "summarize: " + dialogue          # required — same as training
-        inputs = tokenizer(prompt, return_tensors="pt",
-                           truncation=True, max_length=512)
-        out = model.generate(
-            **inputs,
-            max_new_tokens=64,
-            num_beams=4,
-            no_repeat_ngram_size=3,
-            repetition_penalty=1.3,
-            early_stopping=True,
-        )
-        return tokenizer.decode(out[0], skip_special_tokens=True)
+    deepspeed --num_gpus=<N> CiT_Train.py \
+        --deepspeed ds_config.json \
+        --epochs 200 \
+        --batch_size 128 \
+        --lr 2.1e-4 \
+        --resume
 
-    dialogue = """Amanda: I baked cookies. Do you want some?
-    Jerry: Sure!
-    Amanda: I'll bring you tomorrow :-)"""
-
-    print(summarize(dialogue))
-    # → Amanda baked cookies. Jerry will bring Amanda tomorrow.
-
-Important: the "summarize: " prefix is mandatory — it was used during training
-and must be included at inference, otherwise the output degrades badly.
+Key arguments:
+- `--epochs` — number of training epochs (default: 200)
+- `--batch_size` — global batch size (default: 64)
+- `--lr` — learning rate (default: 3e-4)
+- `--resume` — resume from latest checkpoint
+- `--ckpt_dir` — checkpoint directory (auto-selected if not provided)
+- `--early_stop_acc` — early stopping threshold (default: 90.0%)
 
 ---
 
-## Examples
+## Notes & Known Limitations
 
-| Input (dialogue) | Model output | Quality |
-|---|---|---|
-| SAMSUM-style conversation | Amanda baked cookies. Jerry will bring Amanda tomorrow. | Good structure, minor role swap |
-| English news article | repetitive / off-topic | Out-of-domain — model trained on dialogues only |
-| Persian text | — | Not supported (t5-small is English-only) |
-
----
-
-## Limitations
-
-- Role / entity swapping. t5-small has limited capacity for tracking who does
-  what in multi-turn dialogues. Occasionally the subject and object are inverted
-  (e.g. "Jerry will bring Amanda" instead of the reverse).
-- In-domain only. Trained on casual English dialogues (SAMSUM). News, technical
-  text, and formal documents produce low-quality summaries.
-- English only. t5-small does not support Persian or other languages.
-- Short outputs. Maximum summary length during training was 128 tokens, so the
-  model tends to produce 1–2 sentence summaries.
+- **Small model size.** The default config uses `d_model=224, n_layers=8, d_ff=608` (~10M parameters). Validation accuracy is expected to be much lower than standard ViT-Base.
+- **Experimental MoE.** The MoE routing uses `allgather` token dispatcher and a manual `index_add_` loop over experts, which is correct but not the most efficient implementation for larger models.
+- **Tensor parallelism via Megatron-Core.** Requires `initialize_model_parallel` and a distributed environment; single-GPU usage may need adjustment.
+- **Training time.** Each epoch takes ~15 minutes on a single GPU (based on `epochs.txt`).
+- **Not yet converged.** Training is ongoing; results shown are after only 10 epochs.
 
 ---
 
-## Possible improvements
+## Future Work
 
-To increase summary quality and role-tracking accuracy:
-
-1. Larger base model — swap t5-small → t5-base or google/flan-t5-base (biggest
-   impact; t5-small is simply too small for entity tracking).
-2. Higher LoRA rank — r=8 → r=16.
-3. More LoRA target modules — ["q", "v"] → ["q", "k", "v", "o", "wi", "wo"].
-4. More epochs / lower LR — 3 → 5 epochs, 3e-4 → 1e-4.
-5. Stronger beam search — num_beams=6.
-
-For Persian summarization, use google/mt5-small or mt5-base instead, and
-fine-tune on a Persian summarization dataset.
+- Scale up to `d_model=384` or `512` with more layers.
+- Replace manual expert loop with `megatron.core.transformer.moe` dispatcher for better throughput.
+- Try BF16 instead of FP16 for better stability.
+- Add gradient checkpointing for larger variants.
+- Evaluate on full ImageNet-1K.
 
 ---
 
-## Training details
+## License
 
-    LoraConfig(
-        task_type=TaskType.SEQ_2_SEQ_LM,
-        r=8,
-        lora_alpha=32,
-        lora_dropout=0.1,
-        target_modules=["q", "v"],
-    )
-
-    Seq2SeqTrainingArguments(
-        per_device_train_batch_size=8,
-        num_train_epochs=3,
-        learning_rate=3e-4,
-        predict_with_generate=True,
-        eval_strategy="epoch",
-    )
-
-Inputs were prefixed with "summarize: " and truncated to 512 tokens; summaries
-were truncated to 128 tokens.
-
----
+MIT — free to use, modify, and distribute.
 
 ## Acknowledgements
 
-- t5-small — Google Research
-- SAMSUM — Samsung R&D
-- PEFT — Hugging Face
+- [Megatron-Core](https://github.com/NVIDIA/Megatron-LM) — tensor parallelism primitives
+- [DeepSpeed](https://github.com/microsoft/DeepSpeed) — ZeRO optimizer
+- [HuggingFace Datasets](https://huggingface.co/datasets/clane9/imagenet-100) — ImageNet-100
+- [timm](https://github.com/huggingface/pytorch-image-models) — Mixup / CutMix
