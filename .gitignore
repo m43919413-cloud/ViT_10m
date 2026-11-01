@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+Fine_Tune_Lora_T5.py
+Ineferce_ViT_10m.py
+Inference_T5.py
+T5_model/
+*.safetensors
+epochs.txt
