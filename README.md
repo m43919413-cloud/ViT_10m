@@ -72,7 +72,7 @@ Training was run for at least 10 epochs and val accuracy was still climbing (~2.
 
 ## Installation
 
-    git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git
+    git clone https://github.com/m43919413-cloud/ViT_10m.git
     cd YOUR_REPO
 
     python -m venv venv
