@@ -11,7 +11,7 @@ import torchvision.transforms as T
 from ViT_model import ViT
 
 try:
-    from ViT_Dataloader import MEAN, STD
+    from Transformer_Dataloader import MEAN, STD
     _HAS_DL = True
 except Exception:
     MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
